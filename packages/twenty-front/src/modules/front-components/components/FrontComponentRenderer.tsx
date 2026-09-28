@@ -6,12 +6,16 @@ import { useOnApplicationSdkClientChecksumsUpdated } from '@/front-components/ho
 import { useOnFrontComponentUpdated } from '@/front-components/hooks/useOnFrontComponentUpdated';
 import { useFrontComponentMediaSession } from '@/front-components/media-session/hooks/useFrontComponentMediaSession';
 import { getFingerprintedRestUrl } from '@/front-components/utils/getFingerprintedRestUrl';
+import { getFrontComponentCommandContextForApplication } from '@/front-components/utils/getFrontComponentCommandContextForApplication';
 import { getSdkClientUrls } from '@/front-components/utils/getSdkClientUrls';
 import { useGetLogicFunctionHttpUrl } from '@/settings/logic-functions/hooks/useGetLogicFunctionHttpUrl';
 import { useQuery } from '@apollo/client/react';
 import { t } from '@lingui/core/macro';
 import { type ReactNode, useCallback, useContext, useMemo } from 'react';
-import { FrontComponentRenderer as SharedFrontComponentRenderer } from 'twenty-front-component-renderer';
+import {
+  type FrontComponentCommandContext,
+  FrontComponentRenderer as SharedFrontComponentRenderer,
+} from 'twenty-front-component-renderer';
 import { isDefined } from 'twenty-shared/utils';
 import { useToast } from 'twenty-ui/primitives/feedback';
 import { ThemeContext } from 'twenty-ui/theme-constants';
@@ -26,6 +30,10 @@ type FrontComponentRendererProps = {
   frontComponentId: string;
   commandMenuItemId?: string;
   selectedRecordIds?: string[];
+  commandContext?: FrontComponentCommandContext;
+  // When set, the command context is only given to a front component of this
+  // application (a front component re-opening itself with its context).
+  commandContextSourceApplicationId?: string;
   timelineActivityId?: string;
   loadingFallback?: ReactNode;
   unavailableFallback?: ReactNode;
@@ -39,6 +47,8 @@ type FrontComponentRendererContentProps = {
   frontComponent: ResolvedFrontComponent;
   commandMenuItemId?: string;
   selectedRecordIds?: string[];
+  commandContext?: FrontComponentCommandContext;
+  commandContextSourceApplicationId?: string;
   timelineActivityId?: string;
   loadingFallback?: ReactNode;
 };
@@ -47,6 +57,8 @@ export const FrontComponentRenderer = ({
   frontComponentId,
   commandMenuItemId,
   selectedRecordIds,
+  commandContext,
+  commandContextSourceApplicationId,
   timelineActivityId,
   loadingFallback,
   unavailableFallback,
@@ -73,6 +85,8 @@ export const FrontComponentRenderer = ({
           frontComponent={frontComponent}
           commandMenuItemId={commandMenuItemId}
           selectedRecordIds={selectedRecordIds}
+          commandContext={commandContext}
+          commandContextSourceApplicationId={commandContextSourceApplicationId}
           timelineActivityId={timelineActivityId}
           loadingFallback={loadingFallback}
         />
@@ -85,6 +99,8 @@ const FrontComponentRendererContent = ({
   frontComponent,
   commandMenuItemId,
   selectedRecordIds,
+  commandContext,
+  commandContextSourceApplicationId,
   timelineActivityId,
   loadingFallback,
 }: FrontComponentRendererContentProps) => {
@@ -108,6 +124,11 @@ const FrontComponentRendererContent = ({
     applicationId,
     commandMenuItemId,
     selectedRecordIds,
+    commandContext: getFrontComponentCommandContextForApplication({
+      commandContext,
+      commandContextSourceApplicationId,
+      applicationId,
+    }),
     timelineActivityId,
     colorScheme,
   });

@@ -204,6 +204,18 @@ const FRONT_COMPONENT_ID = 'fc-test-id';
 const APPLICATION_ID = 'application-test-id';
 const STORAGE_NAMESPACE = `frontComponentStorage:${APPLICATION_ID}:user-123:`;
 const COMMAND_MENU_ITEM_ID = 'cmd-item-1';
+const COMMAND_CONTEXT = {
+  objectNameSingular: 'person',
+  objectMetadataId: 'person-object-id',
+  currentViewId: 'view-1',
+  targetedRecordsRule: {
+    mode: 'exclusion' as const,
+    excludedRecordIds: ['person-3'],
+  },
+  recordFilter: {
+    and: [{ city: { eq: 'Brisbane' } }, { not: { id: { in: ['person-3'] } } }],
+  },
+};
 
 const parentViewAtom =
   contextStoreRecordShowParentViewComponentState.atomFamily({
@@ -297,6 +309,79 @@ describe('useFrontComponentExecutionContext', () => {
       });
 
       expect(result.current.executionContext.colorScheme).toBe('dark');
+    });
+
+    it('should leave the command context fields out when there is no command context', () => {
+      const { result } = renderUseFrontComponentExecutionContext({
+        frontComponentId: FRONT_COMPONENT_ID,
+        selectedRecordIds: ['record-456'],
+      });
+
+      const commandContextKeys = [
+        'objectNameSingular',
+        'objectMetadataId',
+        'currentViewId',
+        'targetedRecordsRule',
+        'recordFilter',
+      ];
+
+      expect(
+        Object.keys(result.current.executionContext).filter((key) =>
+          commandContextKeys.includes(key),
+        ),
+      ).toEqual([]);
+    });
+
+    it('should expose the command context next to the selected record ids', () => {
+      const { result } = renderUseFrontComponentExecutionContext({
+        frontComponentId: FRONT_COMPONENT_ID,
+        commandMenuItemId: COMMAND_MENU_ITEM_ID,
+        selectedRecordIds: [],
+        commandContext: COMMAND_CONTEXT,
+      });
+
+      expect(result.current.executionContext).toStrictEqual({
+        frontComponentId: FRONT_COMPONENT_ID,
+        userId: 'user-123',
+        recordId: null,
+        selectedRecordIds: [],
+        timelineActivityId: null,
+        colorScheme: 'light',
+        locale: i18n.locale as AppLocale,
+        objectNameSingular: 'person',
+        objectMetadataId: 'person-object-id',
+        currentViewId: 'view-1',
+        targetedRecordsRule: {
+          mode: 'exclusion',
+          excludedRecordIds: ['person-3'],
+        },
+        recordFilter: {
+          and: [
+            { city: { eq: 'Brisbane' } },
+            { not: { id: { in: ['person-3'] } } },
+          ],
+        },
+      });
+    });
+
+    it('should only set the command context fields it was given', () => {
+      const { result } = renderUseFrontComponentExecutionContext({
+        frontComponentId: FRONT_COMPONENT_ID,
+        commandContext: {
+          targetedRecordsRule: { mode: 'selection', selectedRecordIds: [] },
+        },
+      });
+
+      expect(result.current.executionContext.targetedRecordsRule).toEqual({
+        mode: 'selection',
+        selectedRecordIds: [],
+      });
+      expect('objectNameSingular' in result.current.executionContext).toBe(
+        false,
+      );
+      expect('objectMetadataId' in result.current.executionContext).toBe(false);
+      expect('currentViewId' in result.current.executionContext).toBe(false);
+      expect('recordFilter' in result.current.executionContext).toBe(false);
     });
   });
 
@@ -748,6 +833,67 @@ describe('useFrontComponentExecutionContext', () => {
         resetNavigationStack: undefined,
         recordContext: { recordId: 'lead-1', objectNameSingular: 'lead' },
       });
+      expect(
+        mockOpenFrontComponentInSidePanel.mock.calls[0][0].commandContext,
+      ).toBeUndefined();
+    });
+
+    it('should hand the command context to itself when it re-opens in the side panel, bound to this application', async () => {
+      const { result } = renderUseFrontComponentExecutionContext({
+        frontComponentId: FRONT_COMPONENT_ID,
+        commandMenuItemId: COMMAND_MENU_ITEM_ID,
+        commandContext: COMMAND_CONTEXT,
+      });
+
+      await act(async () => {
+        await result.current.frontComponentHostCommunicationApi.openSidePanelPage(
+          {
+            page: SidePanelPages.ViewFrontComponent,
+            frontComponentId: FRONT_COMPONENT_ID,
+            pageTitle: 'Send marketing email',
+            pageIcon: 'IconMail',
+          },
+        );
+      });
+
+      expect(mockOpenFrontComponentInSidePanel).toHaveBeenCalledWith({
+        frontComponentId: FRONT_COMPONENT_ID,
+        pageTitle: 'Send marketing email',
+        pageIcon: 'icon-IconMail',
+        resetNavigationStack: undefined,
+        recordContext: undefined,
+        commandContext: {
+          commandContext: COMMAND_CONTEXT,
+          sourceApplicationId: APPLICATION_ID,
+        },
+      });
+    });
+
+    it('should not hand the command context to another front component, even of the same application', async () => {
+      const { result } = renderUseFrontComponentExecutionContext({
+        frontComponentId: FRONT_COMPONENT_ID,
+        commandMenuItemId: COMMAND_MENU_ITEM_ID,
+        commandContext: COMMAND_CONTEXT,
+      });
+
+      await act(async () => {
+        await result.current.frontComponentHostCommunicationApi.openSidePanelPage(
+          {
+            page: SidePanelPages.ViewFrontComponent,
+            frontComponentId: 'fc-other-of-same-app',
+            pageTitle: 'Other panel',
+            pageIcon: 'IconMail',
+          },
+        );
+      });
+
+      expect(mockOpenFrontComponentInSidePanel).toHaveBeenCalledTimes(1);
+      expect(mockOpenFrontComponentInSidePanel.mock.calls[0][0]).toMatchObject({
+        frontComponentId: 'fc-other-of-same-app',
+      });
+      expect(
+        mockOpenFrontComponentInSidePanel.mock.calls[0][0].commandContext,
+      ).toBeUndefined();
     });
   });
 

@@ -1,4 +1,8 @@
 import { useSidePanelMenu } from '@/side-panel/hooks/useSidePanelMenu';
+import {
+  viewableFrontComponentCommandContextComponentState,
+  type ViewableFrontComponentCommandContext,
+} from '@/side-panel/pages/front-component/states/viewableFrontComponentCommandContextComponentState';
 import { viewableFrontComponentIdComponentState } from '@/side-panel/pages/front-component/states/viewableFrontComponentIdComponentState';
 import { viewableFrontComponentRecordContextComponentState } from '@/side-panel/pages/front-component/states/viewableFrontComponentRecordContextComponentState';
 import { useStore } from 'jotai';
@@ -16,6 +20,7 @@ export const useOpenFrontComponentInSidePanel = () => {
     pageIcon,
     resetNavigationStack = false,
     recordContext,
+    commandContext,
   }: {
     frontComponentId: string;
     pageTitle: string;
@@ -25,6 +30,7 @@ export const useOpenFrontComponentInSidePanel = () => {
       recordId: string;
       objectNameSingular: string;
     };
+    commandContext?: ViewableFrontComponentCommandContext;
   }) => {
     const pageComponentInstanceId = v4();
 
@@ -40,6 +46,13 @@ export const useOpenFrontComponentInSidePanel = () => {
         instanceId: pageComponentInstanceId,
       }),
       recordContext ?? null,
+    );
+
+    store.set(
+      viewableFrontComponentCommandContextComponentState.atomFamily({
+        instanceId: pageComponentInstanceId,
+      }),
+      commandContext ?? null,
     );
 
     navigateSidePanelMenu({

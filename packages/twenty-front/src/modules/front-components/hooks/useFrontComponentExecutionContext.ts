@@ -10,6 +10,7 @@ import {
   clearFrontComponentStorage,
   deleteFrontComponentStorageItem,
   setFrontComponentStorageItem,
+  type FrontComponentCommandContext,
   type FrontComponentExecutionContext,
   type FrontComponentHostCommunicationApi,
 } from 'twenty-front-component-renderer';
@@ -118,6 +119,7 @@ export const useFrontComponentExecutionContext = ({
   applicationId,
   commandMenuItemId,
   selectedRecordIds,
+  commandContext,
   timelineActivityId,
   colorScheme,
 }: {
@@ -125,6 +127,8 @@ export const useFrontComponentExecutionContext = ({
   applicationId: string;
   commandMenuItemId?: string;
   selectedRecordIds?: string[];
+  // The context of the command this front component was opened from.
+  commandContext?: FrontComponentCommandContext;
   timelineActivityId?: string;
   colorScheme: 'light' | 'dark';
 }): {
@@ -349,6 +353,15 @@ export const useFrontComponentExecutionContext = ({
           pageIcon: getIcon(params.pageIcon),
           resetNavigationStack: params.resetNavigationStack,
           recordContext,
+          // A command's context follows the hand-off only when this front
+          // component re-opens itself in the side panel (headless -> panel);
+          // another front component, even of the same application, does not
+          // get it.
+          commandContext:
+            isDefined(commandContext) &&
+            params.frontComponentId === frontComponentId
+              ? { commandContext, sourceApplicationId: applicationId }
+              : undefined,
         });
 
         return;
@@ -426,6 +439,22 @@ export const useFrontComponentExecutionContext = ({
     // i18n.locale is a Lingui string; the host is always configured with the
     // APP_LOCALES set, so it is a valid AppLocale.
     locale: i18n.locale as AppLocale,
+    // Only set in a command context, so other contexts keep their shape.
+    ...(isDefined(commandContext?.objectNameSingular)
+      ? { objectNameSingular: commandContext.objectNameSingular }
+      : {}),
+    ...(isDefined(commandContext?.objectMetadataId)
+      ? { objectMetadataId: commandContext.objectMetadataId }
+      : {}),
+    ...(isDefined(commandContext?.currentViewId)
+      ? { currentViewId: commandContext.currentViewId }
+      : {}),
+    ...(isDefined(commandContext?.targetedRecordsRule)
+      ? { targetedRecordsRule: commandContext.targetedRecordsRule }
+      : {}),
+    ...(isDefined(commandContext?.recordFilter)
+      ? { recordFilter: commandContext.recordFilter }
+      : {}),
   };
 
   const unmountFrontComponent: FrontComponentHostCommunicationApi['unmountFrontComponent'] =

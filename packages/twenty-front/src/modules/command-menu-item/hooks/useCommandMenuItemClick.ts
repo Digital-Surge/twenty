@@ -1,6 +1,8 @@
 import { type CommandMenuItemDefinition } from '@/command-menu-item/types/CommandMenuItemDefinition';
 import { CommandMenuContext } from '@/command-menu-item/contexts/CommandMenuContext';
 import { useMountCommand } from '@/command-menu-item/engine-command/hooks/useMountCommand';
+import { buildFrontComponentCommandContext } from '@/command-menu-item/engine-command/utils/buildFrontComponentCommandContext';
+import { buildHeadlessCommandContextApi } from '@/command-menu-item/engine-command/utils/buildHeadlessCommandContextApi';
 import { isPathCommandMenuItemPayload } from '@/command-menu-item/engine-command/utils/isPathCommandMenuItemPayload';
 import { isEngineCommandMountedFamilySelector } from '@/command-menu-item/engine-command/selectors/isEngineCommandMountedFamilySelector';
 import { useCloseCommandMenu } from '@/command-menu-item/hooks/useCloseCommandMenu';
@@ -10,7 +12,9 @@ import { useOpenFrontComponentInSidePanel } from '@/side-panel/hooks/useOpenFron
 import { useAvailableComponentInstanceIdOrThrow } from '@/ui/utilities/state/component-state/hooks/useAvailableComponentInstanceIdOrThrow';
 import { useAtomFamilySelectorValue } from '@/ui/utilities/state/jotai/hooks/useAtomFamilySelectorValue';
 import { useAtomFamilyStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomFamilyStateValue';
+import { useStore } from 'jotai';
 import { useContext } from 'react';
+import { type FrontComponentCommandContext } from 'twenty-front-component-renderer';
 import { isDefined } from 'twenty-shared/utils';
 import { type IconComponent } from 'twenty-ui/icon';
 
@@ -24,6 +28,7 @@ export const useCommandMenuItemClick = ({
   label: string;
 }) => {
   const { commandMenuContextApi } = useContext(CommandMenuContext);
+  const store = useStore();
   const mountCommand = useMountCommand();
   const { openFrontComponentInSidePanel } = useOpenFrontComponentInSidePanel();
 
@@ -103,6 +108,23 @@ export const useCommandMenuItemClick = ({
         | string
         | undefined;
 
+      // The same command context a headless run gets, read before the
+      // command menu closes. If it cannot be read, the panel still opens,
+      // without a context, as it did before.
+      let commandContext: FrontComponentCommandContext | undefined;
+
+      try {
+        commandContext = buildFrontComponentCommandContext(
+          buildHeadlessCommandContextApi({
+            store,
+            contextStoreInstanceId,
+            engineComponentKey: item.engineComponentKey,
+          }),
+        );
+      } catch {
+        commandContext = undefined;
+      }
+
       closeCommandMenu();
 
       openFrontComponentInSidePanel({
@@ -113,6 +135,9 @@ export const useCommandMenuItemClick = ({
           isDefined(recordId) && isDefined(objectNameSingular)
             ? { recordId, objectNameSingular }
             : undefined,
+        commandContext: isDefined(commandContext)
+          ? { commandContext }
+          : undefined,
       });
     }
   };

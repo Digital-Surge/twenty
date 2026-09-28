@@ -1,7 +1,8 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useMemo } from 'react';
 
 import { useHeadlessCommandContextApi } from '@/command-menu-item/engine-command/hooks/useHeadlessCommandContextApi';
 import { CommandComponentInstanceContext } from '@/command-menu-item/engine-command/states/contexts/CommandComponentInstanceContext';
+import { buildFrontComponentCommandContext } from '@/command-menu-item/engine-command/utils/buildFrontComponentCommandContext';
 import { isHeadlessFrontComponentCommandContextApi } from '@/command-menu-item/engine-command/utils/isHeadlessFrontComponentCommandContextApi';
 import { useAvailableComponentInstanceIdOrThrow } from '@/ui/utilities/state/component-state/hooks/useAvailableComponentInstanceIdOrThrow';
 
@@ -18,6 +19,11 @@ export const HeadlessFrontComponentRendererEngineCommand = () => {
 
   const context = useHeadlessCommandContextApi();
 
+  const commandContext = useMemo(
+    () => buildFrontComponentCommandContext(context),
+    [context],
+  );
+
   if (!isHeadlessFrontComponentCommandContextApi(context)) {
     throw new Error(
       'Context is not a headless front component command context API',
@@ -32,6 +38,7 @@ export const HeadlessFrontComponentRendererEngineCommand = () => {
         frontComponentId={context.frontComponentId}
         commandMenuItemId={commandMenuItemId}
         selectedRecordIds={selectedRecordIds}
+        commandContext={commandContext}
       />
     </Suspense>
   );

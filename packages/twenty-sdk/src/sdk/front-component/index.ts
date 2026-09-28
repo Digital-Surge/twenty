@@ -11,6 +11,7 @@ export { unmountFrontComponent } from './functions/unmountFrontComponent';
 export { updateProgress } from './functions/updateProgress';
 export { uploadFile } from './functions/uploadFile';
 export { useColorScheme } from './hooks/useColorScheme';
+export { useCommandContext } from './hooks/useCommandContext';
 export { useFrontComponentExecutionContext } from './hooks/useFrontComponentExecutionContext';
 export { useFrontComponentId } from './hooks/useFrontComponentId';
 export { useTranslate } from './hooks/useTranslate';
@@ -26,7 +27,11 @@ export type {
   MessageDescriptor,
   TranslationValues,
 } from './translations/message';
-export type { FrontComponentExecutionContext } from './types/FrontComponentExecutionContext';
+export type {
+  FrontComponentCommandContext,
+  FrontComponentExecutionContext,
+  FrontComponentTargetedRecordsRule,
+} from './types/FrontComponentExecutionContext';
 export type { FrontComponentStorageType } from './types/FrontComponentStorageType';
 export { getFrontComponentCommandErrorDedupeKey } from './utils/getFrontComponentCommandErrorDedupeKey';
 export type {
