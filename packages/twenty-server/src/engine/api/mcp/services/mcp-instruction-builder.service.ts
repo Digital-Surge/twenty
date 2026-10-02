@@ -21,9 +21,11 @@ export class McpInstructionBuilderService {
   async buildInstructions({
     workspaceId,
     roleId,
+    excludedToolNames = MCP_EXCLUDED_TOOL_NAMES,
   }: {
     workspaceId: string;
     roleId: string;
+    excludedToolNames?: Set<string>;
   }): Promise<string> {
     const [{ flatObjectMetadataMaps }, allSkills, actionToolCatalog] =
       await Promise.all([
@@ -46,7 +48,7 @@ export class McpInstructionBuilderService {
 
     const actionToolNames = actionToolCatalog
       .map((entry) => entry.name)
-      .filter((name) => !MCP_EXCLUDED_TOOL_NAMES.has(name));
+      .filter((name) => !excludedToolNames.has(name));
 
     const skillNames =
       allSkills.length > 0

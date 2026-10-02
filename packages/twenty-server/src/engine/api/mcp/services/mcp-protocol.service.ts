@@ -6,10 +6,10 @@ import { isDefined } from 'twenty-shared/utils';
 
 import { JSON_RPC_ERROR_CODE } from 'src/engine/api/mcp/constants/json-rpc-error-code.const';
 import { MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS } from 'src/engine/api/mcp/constants/mcp-closed-world-read-only-tool-annotations.const';
-import { MCP_EXCLUDED_TOOL_NAMES } from 'src/engine/api/mcp/constants/mcp-excluded-tool-names.const';
 import { MCP_EXECUTE_TOOL_ANNOTATIONS } from 'src/engine/api/mcp/constants/mcp-execute-tool-annotations.const';
 import { MCP_OPEN_WORLD_READ_ONLY_TOOL_ANNOTATIONS } from 'src/engine/api/mcp/constants/mcp-open-world-read-only-tool-annotations.const';
 import { MCP_PROTOCOL_VERSION } from 'src/engine/api/mcp/constants/mcp-protocol-version.const';
+import { MCP_PUBLIC_EXCLUDED_TOOL_CATEGORIES } from 'src/engine/api/mcp/constants/mcp-public-request.const';
 import { MCP_SERVER_INFO } from 'src/engine/api/mcp/constants/mcp-server-info.const';
 import { JsonRpc } from 'src/engine/api/mcp/dtos/json-rpc';
 import { McpInstructionBuilderService } from 'src/engine/api/mcp/services/mcp-instruction-builder.service';
@@ -25,6 +25,7 @@ import {
   listSkillsInputSchema,
 } from 'src/engine/api/mcp/tools/list-skills.tool';
 import { type McpToolAnnotations } from 'src/engine/api/mcp/types/mcp-tool-annotations.type';
+import { buildMcpExcludedToolNames } from 'src/engine/api/mcp/utils/build-mcp-excluded-tool-names.util';
 import { wrapJsonRpcResponse } from 'src/engine/api/mcp/utils/wrap-jsonrpc-response.util';
 import { ApiKeyRoleService } from 'src/engine/core-modules/api-key/services/api-key-role.service';
 import { type FlatApiKey } from 'src/engine/core-modules/api-key/types/flat-api-key.type';
@@ -100,12 +101,21 @@ export class McpProtocolService {
 
   async handleInitialize(
     requestId: string | number,
-    { workspaceId, roleId }: { workspaceId: string; roleId: string },
+    {
+      workspaceId,
+      roleId,
+      excludedToolNames,
+    }: {
+      workspaceId: string;
+      roleId: string;
+      excludedToolNames?: Set<string>;
+    },
   ) {
     const instructions =
       await this.mcpInstructionBuilderService.buildInstructions({
         workspaceId,
         roleId,
+        excludedToolNames,
       });
 
     return wrapJsonRpcResponse(requestId, {
@@ -197,33 +207,61 @@ export class McpProtocolService {
     return actorContext;
   }
 
+  // Tide fork: see MCP_PUBLIC_EXCLUDED_TOOL_CATEGORIES. Only public requests pay for the extra catalog read.
+  private async getExcludedToolNames(
+    workspaceId: string,
+    roleId: string,
+    options: {
+      isPublicRequest: boolean;
+      userId?: string;
+      userWorkspaceId?: string;
+    },
+  ): Promise<Set<string>> {
+    const publicExcludedCategoryToolNames = options.isPublicRequest
+      ? (
+          await this.toolRegistry.buildToolIndex(workspaceId, roleId, {
+            userId: options.userId,
+            userWorkspaceId: options.userWorkspaceId,
+            categories: MCP_PUBLIC_EXCLUDED_TOOL_CATEGORIES,
+          })
+        ).map((entry) => entry.name)
+      : [];
+
+    return buildMcpExcludedToolNames({
+      isPublicRequest: options.isPublicRequest,
+      publicExcludedCategoryToolNames,
+    });
+  }
+
   private async buildMcpToolSet(
     workspace: FlatWorkspace,
     roleId: string,
-    options?: {
+    options: {
       authContext?: WorkspaceAuthContext;
       userId?: string;
       userWorkspaceId?: string;
       apiKey?: FlatApiKey;
+      excludedToolNames: Set<string>;
     },
   ): Promise<ToolSet> {
     const actorContext = await this.buildActorContext(
       workspace.id,
-      options?.userId,
-      options?.apiKey,
+      options.userId,
+      options.apiKey,
     );
+    const excludedToolNames = options.excludedToolNames;
 
     const toolContext = {
       workspaceId: workspace.id,
       roleId,
-      authContext: options?.authContext,
-      userId: options?.userId,
-      userWorkspaceId: options?.userWorkspaceId,
+      authContext: options.authContext,
+      userId: options.userId,
+      userWorkspaceId: options.userWorkspaceId,
       actorContext,
     };
 
     const preloadedTools = await this.toolRegistry.getToolsByName(
-      COMMON_PRELOAD_TOOLS,
+      COMMON_PRELOAD_TOOLS.filter((name) => !excludedToolNames.has(name)),
       toolContext,
     );
 
@@ -231,16 +269,16 @@ export class McpProtocolService {
       ...annotatePreloadedMcpTools(preloadedTools),
       [GET_TOOL_CATALOG_TOOL_NAME]: {
         ...createGetToolCatalogTool(this.toolRegistry, workspace.id, roleId, {
-          userId: options?.userId,
-          userWorkspaceId: options?.userWorkspaceId,
-          excludeTools: MCP_EXCLUDED_TOOL_NAMES,
+          userId: options.userId,
+          userWorkspaceId: options.userWorkspaceId,
+          excludeTools: excludedToolNames,
         }),
         inputSchema: zodSchema(getToolCatalogInputSchema),
         annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
       [EXECUTE_TOOL_TOOL_NAME]: {
         ...createExecuteToolTool(this.toolRegistry, toolContext, {
-          isToolAllowed: (toolName) => !MCP_EXCLUDED_TOOL_NAMES.has(toolName),
+          isToolAllowed: (toolName) => !excludedToolNames.has(toolName),
         }),
         inputSchema: executeToolInputSchema,
         annotations: MCP_EXECUTE_TOOL_ANNOTATIONS,
@@ -275,7 +313,7 @@ export class McpProtocolService {
       } as McpAnnotatedTool,
       [LEARN_TOOLS_TOOL_NAME]: {
         ...createLearnToolsTool(this.toolRegistry, toolContext, {
-          isToolAllowed: (toolName) => !MCP_EXCLUDED_TOOL_NAMES.has(toolName),
+          isToolAllowed: (toolName) => !excludedToolNames.has(toolName),
         }),
         inputSchema: zodSchema(learnToolsInputSchema),
         annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
@@ -291,11 +329,13 @@ export class McpProtocolService {
       userId,
       userWorkspaceId,
       apiKey,
+      isPublicRequest = false,
     }: {
       workspace: FlatWorkspace;
       userId?: string;
       userWorkspaceId?: string;
       apiKey: FlatApiKey | undefined;
+      isPublicRequest?: boolean;
     },
     sseWriter?: (data: Record<string, unknown>) => void,
   ): Promise<Record<string, unknown> | null> {
@@ -306,9 +346,20 @@ export class McpProtocolService {
       }
 
       if (method === 'initialize') {
+        const initializeRoleId = await this.getRoleId(
+          workspace.id,
+          userWorkspaceId,
+          apiKey,
+        );
+
         return this.handleInitialize(id, {
           workspaceId: workspace.id,
-          roleId: await this.getRoleId(workspace.id, userWorkspaceId, apiKey),
+          roleId: initializeRoleId,
+          excludedToolNames: await this.getExcludedToolNames(
+            workspace.id,
+            initializeRoleId,
+            { isPublicRequest, userId, userWorkspaceId },
+          ),
         });
       }
 
@@ -352,6 +403,11 @@ export class McpProtocolService {
         userId,
         userWorkspaceId,
         apiKey,
+        excludedToolNames: await this.getExcludedToolNames(
+          workspace.id,
+          roleId,
+          { isPublicRequest, userId, userWorkspaceId },
+        ),
       });
 
       if (method === 'tools/call') {

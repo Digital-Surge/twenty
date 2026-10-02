@@ -8,12 +8,20 @@ describe('McpAuthGuard', () => {
   let jwtAuthGuard: jest.Mocked<JwtAuthGuard>;
 
   const mockSetHeader = jest.fn();
-  const buildContext = (host = 'crm.example.com'): ExecutionContext =>
+  const buildContext = (
+    host = 'crm.example.com',
+    {
+      headers = {},
+      apiKey,
+    }: { headers?: Record<string, string>; apiKey?: { id: string } } = {},
+  ): ExecutionContext =>
     ({
       switchToHttp: () => ({
         getResponse: () => ({ setHeader: mockSetHeader }),
         getRequest: () => ({
           protocol: 'https',
+          headers,
+          apiKey,
           get: (name: string) => (name === 'host' ? host : undefined),
         }),
       }),
@@ -48,5 +56,61 @@ describe('McpAuthGuard', () => {
       'WWW-Authenticate',
       'Bearer resource_metadata="https://acme.twenty.com/.well-known/oauth-protected-resource/mcp", scope="api profile"',
     );
+  });
+
+  describe('public requests (Tide fork)', () => {
+    const publicHeaders = { 'cf-connecting-ip': '160.79.104.10' };
+
+    it('refuses an API key on a request that came through Cloudflare, with the OAuth challenge', async () => {
+      jwtAuthGuard.canActivate.mockResolvedValue(true);
+
+      await expect(
+        guard.canActivate(
+          buildContext('tide.example.com', {
+            headers: publicHeaders,
+            apiKey: { id: 'api-key-id' },
+          }),
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(mockSetHeader).toHaveBeenCalledWith(
+        'WWW-Authenticate',
+        'Bearer resource_metadata="https://tide.example.com/.well-known/oauth-protected-resource/mcp", scope="api profile"',
+      );
+    });
+
+    it('accepts an OAuth (user) token on a public request', async () => {
+      jwtAuthGuard.canActivate.mockResolvedValue(true);
+
+      await expect(
+        guard.canActivate(
+          buildContext('tide.example.com', { headers: publicHeaders }),
+        ),
+      ).resolves.toBe(true);
+      expect(mockSetHeader).not.toHaveBeenCalled();
+    });
+
+    it('accepts an API key on a request without the Cloudflare header (the operator tunnel)', async () => {
+      jwtAuthGuard.canActivate.mockResolvedValue(true);
+
+      await expect(
+        guard.canActivate(
+          buildContext('127.0.0.1:3000', { apiKey: { id: 'api-key-id' } }),
+        ),
+      ).resolves.toBe(true);
+    });
+
+    it('treats an empty header as not public', async () => {
+      jwtAuthGuard.canActivate.mockResolvedValue(true);
+
+      await expect(
+        guard.canActivate(
+          buildContext('127.0.0.1:3000', {
+            headers: { 'cf-connecting-ip': '' },
+            apiKey: { id: 'api-key-id' },
+          }),
+        ),
+      ).resolves.toBe(true);
+    });
   });
 });

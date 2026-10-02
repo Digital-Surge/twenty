@@ -122,6 +122,7 @@ describe('McpCoreController', () => {
           userId: mockUser.id,
           userWorkspaceId: mockUserWorkspaceId,
           apiKey: mockApiKey,
+          isPublicRequest: false,
         },
       );
       expect(result).toEqual(mockResponse);
@@ -168,6 +169,7 @@ describe('McpCoreController', () => {
           userId: mockUser.id,
           userWorkspaceId: mockUserWorkspaceId,
           apiKey: mockApiKey,
+          isPublicRequest: false,
         },
       );
       expect(result).toEqual(mockResponse);
@@ -213,6 +215,7 @@ describe('McpCoreController', () => {
           userId: mockUser.id,
           userWorkspaceId: mockUserWorkspaceId,
           apiKey: mockApiKey,
+          isPublicRequest: false,
         },
       );
       expect(result).toEqual(mockResponse);
@@ -276,6 +279,7 @@ describe('McpCoreController', () => {
           userId: undefined,
           userWorkspaceId: undefined,
           apiKey: mockApiKey,
+          isPublicRequest: false,
         },
       );
       expect(result).toEqual(mockResponse);
@@ -338,6 +342,7 @@ describe('McpCoreController', () => {
           userId: mockUser.id,
           userWorkspaceId: mockUserWorkspaceId,
           apiKey: mockApiKey,
+          isPublicRequest: false,
         },
         expect.any(Function),
       );

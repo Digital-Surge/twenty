@@ -16,9 +16,11 @@ import { type Response } from 'express';
 import { ApiPath } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 
+import { MCP_PUBLIC_REQUEST_HEADER } from 'src/engine/api/mcp/constants/mcp-public-request.const';
 import { JsonRpc } from 'src/engine/api/mcp/dtos/json-rpc';
 import { McpAuthGuard } from 'src/engine/api/mcp/guards/mcp-auth.guard';
 import { McpProtocolService } from 'src/engine/api/mcp/services/mcp-protocol.service';
+import { isPublicMcpRequest } from 'src/engine/api/mcp/utils/is-public-mcp-request.util';
 import { writeSseEvent } from 'src/engine/api/mcp/utils/write-sse-event.util';
 import { RestApiExceptionFilter } from 'src/engine/api/rest/rest-api-exception.filter';
 import { FlatApiKey } from 'src/engine/core-modules/api-key/types/flat-api-key.type';
@@ -55,12 +57,14 @@ export class McpCoreController {
     userWorkspaceId: string | undefined,
     @Headers('accept') acceptHeader: string | undefined,
     @Res({ passthrough: true }) res: Response,
+    @Headers(MCP_PUBLIC_REQUEST_HEADER) publicRequestHeader?: string,
   ) {
     const authContext = {
       workspace,
       userId: user?.id,
       userWorkspaceId,
       apiKey,
+      isPublicRequest: isPublicMcpRequest(publicRequestHeader),
     };
 
     // JSON-RPC notifications (no id) expect no response body regardless of Accept
