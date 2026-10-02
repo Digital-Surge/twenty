@@ -11,12 +11,15 @@ export const MCP_PUBLIC_REQUEST_HEADER = 'cf-connecting-ip';
 export const MCP_PUBLIC_API_KEY_REFUSED_MESSAGE =
   'API keys are not accepted on the public MCP endpoint. Connect with OAuth (sign in as yourself).';
 
-// Tools a public caller never gets, whatever their role: sending mail from a connected mailbox and Twenty's own email
-// campaigns bypass Tide's send guards (Tide sends marketing email only through its own apps).
+// Tools a public caller never gets, whatever their role: sending mail from a connected mailbox (send_email, and
+// create_calendar_event, whose invitations are emails with any text to any attendees, sent through the mailbox's
+// provider) and Twenty's own email campaigns bypass Tide's send guards (Tide sends marketing email only through its
+// own apps).
 export const MCP_PUBLIC_EXCLUDED_TOOL_NAMES = new Set([
   'send_email',
   'draft_email',
   'save_campaign',
+  'create_calendar_event',
 ]);
 
 // Whole categories a public caller never gets: workflows (a workflow can carry a Send Email step), webhooks, roles and
