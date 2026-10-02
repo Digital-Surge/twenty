@@ -1,7 +1,6 @@
 import { MCP_EXCLUDED_TOOL_NAMES } from 'src/engine/api/mcp/constants/mcp-excluded-tool-names.const';
 import { MCP_PUBLIC_EXCLUDED_TOOL_CATEGORIES } from 'src/engine/api/mcp/constants/mcp-public-request.const';
 import { buildMcpExcludedToolNames } from 'src/engine/api/mcp/utils/build-mcp-excluded-tool-names.util';
-import { isPublicMcpRequest } from 'src/engine/api/mcp/utils/is-public-mcp-request.util';
 
 describe('buildMcpExcludedToolNames (Tide fork)', () => {
   it('keeps upstream exclusions only for a tunnel request', () => {
@@ -38,19 +37,5 @@ describe('buildMcpExcludedToolNames (Tide fork)', () => {
 
   it('never excludes the apps’ own tools (LOGIC_FUNCTION) on the public endpoint', () => {
     expect(MCP_PUBLIC_EXCLUDED_TOOL_CATEGORIES).not.toContain('LOGIC_FUNCTION');
-  });
-});
-
-describe('isPublicMcpRequest (Tide fork)', () => {
-  it.each([
-    ['160.79.104.10', true],
-    [['160.79.104.10'], true],
-    ['', false],
-    [undefined, false],
-    [[], false],
-  ])('%p → %p', (value, expected) => {
-    expect(isPublicMcpRequest(value as string | string[] | undefined)).toBe(
-      expected,
-    );
   });
 });

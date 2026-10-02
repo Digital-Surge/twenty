@@ -100,6 +100,19 @@ describe('McpAuthGuard', () => {
       ).resolves.toBe(true);
     });
 
+    it('refuses an API key when only cf-ray arrives (visitor IP headers removed)', async () => {
+      jwtAuthGuard.canActivate.mockResolvedValue(true);
+
+      await expect(
+        guard.canActivate(
+          buildContext('tide.example.com', {
+            headers: { 'cf-ray': '8c0a1b2c3d4e5f60-SYD' },
+            apiKey: { id: 'api-key-id' },
+          }),
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
     it('treats an empty header as not public', async () => {
       jwtAuthGuard.canActivate.mockResolvedValue(true);
 

@@ -26,6 +26,10 @@ import { OAuthRegisterInput } from 'src/engine/core-modules/application/applicat
 import { ApplicationRegistrationEntity } from 'src/engine/core-modules/application/application-registration/application-registration.entity';
 import { ApplicationRegistrationSourceType } from 'src/engine/core-modules/application/application-registration/enums/application-registration-source-type.enum';
 import { AuthRestApiExceptionFilter } from 'src/engine/core-modules/auth/filters/auth-rest-api-exception.filter';
+import {
+  isPublicMcpRequest,
+  publicRedirectUriProblem,
+} from 'src/engine/api/mcp/utils/is-public-mcp-request.util';
 import { validateRedirectUri } from 'src/engine/core-modules/auth/utils/validate-redirect-uri.util';
 import { ThrottlerException } from 'src/engine/core-modules/throttler/throttler.exception';
 import { ThrottlerService } from 'src/engine/core-modules/throttler/throttler.service';
@@ -87,6 +91,20 @@ export class OAuthRegistrationController {
       return {
         error: 'invalid_client_metadata',
         error_description: 'At least one redirect_uri is required',
+      };
+    }
+
+    // Tide fork: through Cloudflare, only Claude's or a loopback callback (see MCP_PUBLIC_ALLOWED_REDIRECT_URI_PREFIXES).
+    const publicProblem = isPublicMcpRequest(req.headers)
+      ? publicRedirectUriProblem(body.redirect_uris)
+      : null;
+
+    if (publicProblem) {
+      res.status(400);
+
+      return {
+        error: 'invalid_redirect_uri',
+        error_description: publicProblem,
       };
     }
 

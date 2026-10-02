@@ -78,11 +78,9 @@ describe('McpProtocolService — public requests (Tide fork)', () => {
       instructions as never,
       {} as never,
       {
-        getOrRecompute: jest
-          .fn()
-          .mockResolvedValue({
-            flatWorkspaceMemberMaps: { idByUserId: {}, byId: {} },
-          }),
+        getOrRecompute: jest.fn().mockResolvedValue({
+          flatWorkspaceMemberMaps: { idByUserId: {}, byId: {} },
+        }),
       } as never,
     );
     const call = async (

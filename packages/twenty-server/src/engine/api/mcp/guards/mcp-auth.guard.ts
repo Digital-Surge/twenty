@@ -8,10 +8,7 @@ import {
 import { type Request, type Response } from 'express';
 import { isDefined } from 'twenty-shared/utils';
 
-import {
-  MCP_PUBLIC_API_KEY_REFUSED_MESSAGE,
-  MCP_PUBLIC_REQUEST_HEADER,
-} from 'src/engine/api/mcp/constants/mcp-public-request.const';
+import { MCP_PUBLIC_API_KEY_REFUSED_MESSAGE } from 'src/engine/api/mcp/constants/mcp-public-request.const';
 import { isPublicMcpRequest } from 'src/engine/api/mcp/utils/is-public-mcp-request.util';
 import { ALL_OAUTH_SCOPES } from 'src/engine/core-modules/application/application-oauth/constants/oauth-scopes';
 import { JwtAuthGuard } from 'src/engine/guards/jwt-auth.guard';
@@ -21,7 +18,7 @@ import { JwtAuthGuard } from 'src/engine/guards/jwt-auth.guard';
 // Resource Metadata URL so the client discovers the correct resource
 // identifier. The `scope` parameter tells the client which scopes to request.
 //
-// Tide fork: a request that came through Cloudflare (see MCP_PUBLIC_REQUEST_HEADER) must authenticate as a person
+// Tide fork: a request that came through Cloudflare (see MCP_PUBLIC_REQUEST_HEADERS) must authenticate as a person
 // with OAuth; an API key is refused there with the same challenge, so the client falls back to the OAuth flow.
 @Injectable()
 export class McpAuthGuard implements CanActivate {
@@ -41,10 +38,7 @@ export class McpAuthGuard implements CanActivate {
       (request as Request & { apiKey?: unknown }).apiKey,
     );
 
-    if (
-      isApiKeyRequest &&
-      isPublicMcpRequest(request.headers[MCP_PUBLIC_REQUEST_HEADER])
-    ) {
+    if (isApiKeyRequest && isPublicMcpRequest(request.headers)) {
       this.challenge(context, request);
 
       throw new UnauthorizedException(MCP_PUBLIC_API_KEY_REFUSED_MESSAGE);
